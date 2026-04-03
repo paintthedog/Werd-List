@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Werd List</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Serif+Text&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --black: #0a0a0a; --white: #ffffff; --accent: #d4290d;
+    --accent-dark: #a31f08; --accent-light: #fff0ee;
+    --gray-light: #f4f4f4; --gray-mid: #d0d0d0; --gray-text: #555555;
+    --mine: #1a5c2a; --mine-bg: #edfdf3; --mine-border: #86efac;
+    --serif: 'DM Serif Text', Georgia, serif;
+    --mono: 'DM Mono', 'Courier New', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--mono); background: var(--white); color: var(--black); min-height: 100vh; font-size: 15px; line-height: 1.5; }
+
+  .header { background: var(--black); padding: 20px 24px; display: flex; align-items: center; justify-content: space-between; border-bottom: 4px solid var(--accent); }
+  .header-title { font-family: var(--serif); font-size: 32px; color: var(--white); }
+  .header-counts { text-align: right; }
+  .header-counts .total { font-family: var(--serif); font-size: 28px; color: var(--accent); line-height: 1; }
+  .header-counts .mine-count { font-size: 12px; color: var(--mine-border); margin-top: 3px; }
+  .header-counts .label { font-size: 11px; color: var(--gray-mid); letter-spacing: 0.12em; text-transform: uppercase; }
+
+  .sync-bar { background: var(--gray-light); border-bottom: 1px solid var(--gray-mid); padding: 5px 24px; font-size: 12px; color: var(--gray-text); display: flex; align-items: center; gap: 8px; min-height: 28px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .dot.ok      { background: #16a34a; }
+  .dot.saving  { background: #d97706; }
+  .dot.error   { background: var(--accent); }
+  .dot.loading { background: var(--gray-mid); }
+
+  .tabs { display: flex; background: var(--black); overflow-x: auto; }
+  .tab { flex-shrink: 0; padding: 12px 18px; border: none; background: none; font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; color: var(--gray-mid); border-bottom: 3px solid transparent; transition: color 0.1s, border-color 0.1s; }
+  .tab:hover { color: var(--white); }
+  .tab.active { color: var(--white); border-bottom-color: var(--accent); }
+
+  .panel { padding: 24px; display: none; max-width: 600px; }
+  .panel.active { display: block; }
+
+  .section-head { font-family: var(--serif); font-size: 22px; color: var(--black); margin-bottom: 14px; }
+
+  .info-box { background: var(--mine-bg); border: 2px solid var(--mine-border); padding: 12px 14px; margin-bottom: 18px; font-size: 13px; color: var(--mine); line-height: 1.7; }
+  .info-box strong { font-weight: 500; }
+
+  input[type=text], textarea, select {
+    font-family: var(--mono); background: var(--white); border: 2px solid var(--black);
+    border-radius: 0; color: var(--black); outline: none;
+    padding: 10px 14px; font-size: 15px; width: 100%;
+    transition: border-color 0.1s; -webkit-appearance: none;
+  }
+  input[type=text]:focus, textarea:focus, select:focus { border-color: var(--accent); }
+  input::placeholder, textarea::placeholder { color: var(--gray-mid); }
+  textarea { resize: vertical; line-height: 1.8; font-size: 13px; }
+  select { cursor: pointer; }
+
+  .add-row { display: flex; gap: 0; margin-bottom: 18px; }
+  .add-row input.word-in { flex: 1; font-size: 20px; font-weight: 500; letter-spacing: 0.06em; border-right: none; }
+  .add-row input.score-in { width: 80px; flex-shrink: 0; text-align: center; font-size: 16px; border-right: none; }
+  .add-btn { flex-shrink: 0; background: var(--accent); border: 2px solid var(--accent); color: var(--white); font-family: var(--mono); font-size: 14px; font-weight: 500; padding: 0 18px; cursor: pointer; letter-spacing: 0.06em; text-transform: uppercase; transition: background 0.1s; white-space: nowrap; }
+  .add-btn:hover { background: var(--accent-dark); }
+  .add-btn:disabled { background: var(--gray-mid); border-color: var(--gray-mid); cursor: default; }
+
+  .bulk-toggle { font-size: 13px; color: var(--accent); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; display: inline-block; margin-bottom: 12px; }
+  .bulk-area { display: none; }
+  .bulk-area.open { display: block; }
+  .bulk-btn { background: var(--black); border: 2px solid var(--black); color: var(--white); font-family: var(--mono); font-size: 13px; font-weight: 500; padding: 10px 18px; cursor: pointer; margin-top: 8px; letter-spacing: 0.06em; text-transform: uppercase; transition: background 0.1s; }
+  .bulk-btn:hover { background: #333; }
+  .bulk-btn:disabled { background: var(--gray-mid); border-color: var(--gray-mid); cursor: default; }
+
+  .flash { font-size: 13px; font-weight: 500; min-height: 20px; margin-top: 10px; letter-spacing: 0.03em; }
+  .flash-good { color: var(--mine); }
+  .flash-warn { color: #92400e; }
+  .flash-err  { color: var(--accent); }
+
+  hr { border: none; border-top: 2px solid var(--black); margin: 20px 0; }
+
+  .browse-row { display: flex; gap: 0; margin-bottom: 14px; }
+  .browse-row input { flex: 1; border-right: none; }
+  .browse-row select { width: 150px; flex-shrink: 0; font-size: 13px; }
+
+  .pills { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+  .pill { padding: 4px 12px; font-family: var(--mono); font-size: 11px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; border: 2px solid var(--black); color: var(--black); background: var(--white); transition: all 0.1s; }
+  .pill:hover { background: var(--gray-light); }
+  .pill.on { background: var(--black); color: var(--white); }
+
+  .word-count { font-size: 13px; color: var(--gray-text); margin-bottom: 10px; }
+  .word-count strong { color: var(--black); font-weight: 500; }
+
+  .word-list { display: flex; flex-direction: column; max-height: 460px; overflow-y: auto; border: 2px solid var(--black); }
+  .word-row { display: flex; align-items: center; padding: 9px 12px; gap: 10px; border-bottom: 1px solid var(--gray-mid); background: var(--white); transition: background 0.08s; }
+  .word-row:last-child { border-bottom: none; }
+  .word-row:hover { background: var(--gray-light); }
+  .word-row.is-mine { background: var(--mine-bg); }
+  .word-row.is-mine:hover { background: #d1fae5; }
+  .word-text { font-family: var(--mono); font-size: 14px; font-weight: 500; letter-spacing: 0.05em; flex: 1; color: var(--black); }
+  .word-len { font-size: 11px; color: var(--gray-mid); width: 18px; text-align: right; flex-shrink: 0; }
+  .mine-tag { font-size: 9px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mine); border: 1px solid var(--mine-border); padding: 1px 5px; flex-shrink: 0; }
+  .score-badge { font-family: var(--mono); font-size: 11px; font-weight: 500; padding: 2px 7px; flex-shrink: 0; min-width: 34px; text-align: center; border: 2px solid; }
+  .s-hi  { color: #1a5c2a; border-color: #1a5c2a; background: #edfdf3; }
+  .s-mid { color: #92400e; border-color: #92400e; background: #fef3c7; }
+  .s-lo  { color: var(--accent-dark); border-color: var(--accent); background: var(--accent-light); }
+  .s-nil { color: var(--gray-text); border-color: var(--gray-mid); background: var(--gray-light); }
+  .del-btn { background: none; border: none; color: var(--gray-mid); font-size: 18px; cursor: pointer; padding: 0 2px; line-height: 1; flex-shrink: 0; transition: color 0.1s; }
+  .del-btn:hover { color: var(--accent); }
+  .del-placeholder { width: 22px; flex-shrink: 0; }
+
+  .empty { text-align: center; color: var(--gray-mid); padding: 3rem 0; font-size: 14px; font-style: italic; }
+
+  .pagination { display: flex; gap: 0; border: 2px solid var(--black); border-top: none; }
+  .pg-btn { flex: 1; background: var(--white); border: none; border-right: 1px solid var(--gray-mid); color: var(--black); font-family: var(--mono); font-size: 12px; font-weight: 500; padding: 9px; cursor: pointer; transition: background 0.1s; }
+  .pg-btn:last-child { border-right: none; }
+  .pg-btn:hover:not(:disabled) { background: var(--black); color: var(--white); }
+  .pg-btn:disabled { color: var(--gray-mid); cursor: default; }
+  .pg-info { flex: 2; display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--gray-text); border-right: 1px solid var(--gray-mid); }
+
+  .import-note { font-size: 13px; color: var(--gray-text); margin: 8px 0 16px; line-height: 1.8; }
+  .import-note code { font-family: var(--mono); background: var(--gray-light); padding: 1px 5px; font-size: 12px; }
+  .import-btn { width: 100%; padding: 13px; background: var(--black); border: 2px solid var(--black); color: var(--white); font-family: var(--mono); font-size: 14px; font-weight: 500; cursor: pointer; letter-spacing: 0.08em; text-transform: uppercase; transition: background 0.1s; }
+  .import-btn:hover { background: #333; }
+  .import-btn:disabled { background: var(--gray-mid); border-color: var(--gray-mid); cursor: default; }
+
+  .export-tabs { display: flex; gap: 0; margin-bottom: 16px; }
+  .export-tab { flex: 1; padding: 10px; border: 2px solid var(--black); background: var(--white); color: var(--black); font-family: var(--mono); font-size: 12px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; transition: all 0.1s; }
+  .export-tab:first-child { border-right: 1px solid var(--black); }
+  .export-tab.on { background: var(--black); color: var(--white); }
+
+  .export-preview { background: var(--gray-light); border: 2px solid var(--black); padding: 12px 14px; font-family: var(--mono); font-size: 12px; color: var(--gray-text); line-height: 2; max-height: 200px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; margin-bottom: 14px; }
+  .export-btns { display: flex; gap: 0; }
+  .export-copy { flex: 1; padding: 13px; border: 2px solid var(--accent); border-right: 1px solid var(--accent); background: var(--accent); color: var(--white); font-family: var(--mono); font-size: 13px; font-weight: 500; cursor: pointer; letter-spacing: 0.06em; text-transform: uppercase; transition: background 0.1s; }
+  .export-copy:hover { background: var(--accent-dark); }
+  .export-dl { flex: 1; padding: 13px; border: 2px solid var(--black); border-left: 1px solid var(--black); background: var(--black); color: var(--white); font-family: var(--mono); font-size: 13px; font-weight: 500; cursor: pointer; letter-spacing: 0.06em; text-transform: uppercase; transition: background 0.1s; }
+  .export-dl:hover { background: #333; }
+
+  .loading-overlay { position: fixed; inset: 0; background: rgba(255,255,255,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: var(--mono); font-size: 14px; color: var(--gray-text); letter-spacing: 0.1em; z-index: 100; gap: 12px; }
+  .loading-bar { width: 200px; height: 3px; background: var(--gray-mid); }
+  .loading-fill { height: 100%; background: var(--accent); width: 30%; animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{width:20%} 50%{width:80%} }
+
+  .word-list::-webkit-scrollbar { width: 5px; }
+  .word-list::-webkit-scrollbar-track { background: var(--gray-light); }
+  .word-list::-webkit-scrollbar-thumb { background: var(--gray-mid); }
+</style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loadingOverlay">
+  <div>Loading word list…</div>
+  <div class="loading-bar"><div class="loading-fill"></div></div>
+</div>
+
+<div class="header">
+  <div><div class="header-title">Werd List</div></div>
+  <div class="header-counts">
+    <div class="total" id="hdrTotal">0</div>
+    <div class="label">words total</div>
+    <div class="mine-count" id="hdrMine">0 personal</div>
+  </div>
+</div>
+
+<div class="sync-bar">
+  <div class="dot loading" id="syncDot"></div>
+  <span id="syncMsg">Connecting…</span>
+</div>
+
+<div class="tabs">
+  <button class="tab active" data-id="add"    onclick="switchTab('add')">Add</button>
+  <button class="tab"        data-id="browse" onclick="switchTab('browse')">Browse</button>
+  <button class="tab"        data-id="import" onclick="switchTab('import')">Import</button>
+  <button class="tab"        data-id="export" onclick="switchTab('export')">Export</button>
+</div>
+
+<!-- ADD -->
+<div class="panel active" id="panel-add">
+  <div class="info-box">
+    Words you add go into your personal <strong>My Words</strong> sheet — saves are fast.<br>
+    The 272k master list is read-only and loads in the background.
+  </div>
+  <div class="section-head">Add a word</div>
+  <div class="add-row">
+    <input class="word-in" type="text" id="wordIn" placeholder="WORD" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" />
+    <input class="score-in" type="text" id="scoreIn" placeholder="score" autocomplete="off" />
+    <button class="add-btn" id="addBtn" onclick="addWord()">+ Add</button>
+  </div>
+  <span class="bulk-toggle" id="bulkToggle" onclick="toggleBulk()">+ paste a list</span>
+  <div class="bulk-area" id="bulkArea">
+    <div class="section-head" style="font-size:18px;margin-bottom:10px">Bulk add to My Words</div>
+    <textarea id="bulkIn" rows="6" placeholder="DOOMSCROLL;84&#10;TRADWIFE;82&#10;ROMANTASY"></textarea>
+    <button class="bulk-btn" id="bulkBtn" onclick="addBulk()">Add all to My Words</button>
+  </div>
+  <div class="flash" id="addFlash"></div>
+  <hr>
+  <div class="section-head" style="font-size:18px;margin-bottom:12px">My words <span style="font-family:var(--mono);font-size:13px;color:var(--gray-text)" id="myWordsCount"></span></div>
+  <div class="word-list" id="recentList"></div>
+</div>
+
+<!-- BROWSE -->
+<div class="panel" id="panel-browse">
+  <div class="section-head">Browse</div>
+  <div class="browse-row">
+    <input type="text" id="browseSearch" placeholder="Filter words…" oninput="renderBrowse()" autocomplete="off" autocorrect="off" spellcheck="false" autocapitalize="characters" />
+    <select id="browseSort" onchange="renderBrowse()">
+      <option value="alpha">A → Z</option>
+      <option value="zalpha">Z → A</option>
+      <option value="score_hi">Score ↓</option>
+      <option value="score_lo">Score ↑</option>
+      <option value="len_hi">Longest</option>
+      <option value="len_lo">Shortest</option>
+      <option value="mine_first">My words first</option>
+    </select>
+  </div>
+  <div class="pills" id="browsePills">
+    <button class="pill on" data-f="all"  onclick="setFilter('all',this)">All</button>
+    <button class="pill"    data-f="mine" onclick="setFilter('mine',this)">My words</button>
+    <button class="pill"    data-f="s"    onclick="setFilter('s',this)">≤ 6</button>
+    <button class="pill"    data-f="m"    onclick="setFilter('m',this)">7–10</button>
+    <button class="pill"    data-f="l"    onclick="setFilter('l',this)">11–14</button>
+    <button class="pill"    data-f="xl"   onclick="setFilter('xl',this)">15+</button>
+    <button class="pill"    data-f="hi"   onclick="setFilter('hi',this)">Score ≥ 70</button>
+  </div>
+  <div class="word-count" id="browseCount"></div>
+  <div class="word-list" id="browseList"></div>
+  <div class="pagination" id="browsePagination"></div>
+</div>
+
+<!-- IMPORT -->
+<div class="panel" id="panel-import">
+  <div class="section-head">Import to My Words</div>
+  <div class="info-box">These words will be added to your personal <strong>My Words</strong> sheet — not the master list.</div>
+  <textarea id="importText" rows="10" placeholder="ABSEIL;75&#10;ACME;60&#10;&#10;Format: WORD;score or just WORD"></textarea>
+  <p class="import-note">Imports merge — words already in My Words are not replaced.</p>
+  <button class="import-btn" id="importBtn" onclick="doImport()" disabled>Merge into My Words</button>
+  <div class="flash" id="importFlash"></div>
+</div>
+
+<!-- EXPORT -->
+<div class="panel" id="panel-export">
+  <div class="section-head">Export</div>
+  <div class="export-tabs">
+    <button class="export-tab on" id="etAll" onclick="setExportMode('all',this)">All words</button>
+    <button class="export-tab" id="etMine" onclick="setExportMode('mine',this)">My words only</button>
+  </div>
+  <div class="pills" id="exportPills">
+    <button class="pill on" data-ef="all" onclick="setExportFilter('all',this)">All lengths</button>
+    <button class="pill"    data-ef="s"   onclick="setExportFilter('s',this)">≤ 6</button>
+    <button class="pill"    data-ef="m"   onclick="setExportFilter('m',this)">7–10</button>
+    <button class="pill"    data-ef="l"   onclick="setExportFilter('l',this)">11–14</button>
+    <button class="pill"    data-ef="xl"  onclick="setExportFilter('xl',this)">15+</button>
+    <button class="pill"    data-ef="hi"  onclick="setExportFilter('hi',this)">Score ≥ 70</button>
+  </div>
+  <div class="word-count" id="exportCount"></div>
+  <div class="export-preview" id="exportPreview"></div>
+  <div class="export-btns">
+    <button class="export-copy" id="copyBtn" onclick="doCopy()">Copy</button>
+    <button class="export-dl" onclick="doDownload()">Download .txt</button>
+  </div>
+  <div class="flash" id="exportFlash"></div>
+</div>
+
+<script>
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzwXw6A72kjlxspTV1o3Miq7xazTCX78tpxTfWdJNegOgG71gdDclitqt3MURV_yoBuOQ/exec';
+const PAGE = 100;
+
+let allWords = [];   // {w, s, mine} — full merged list
+let browseFilter = 'all';
+let exportFilter = 'all';
+let exportMode = 'all';
+let browsePage = 0;
+let bulkOpen = false;
+let busy = false;
+
+// ── Sync ──────────────────────────────────────────────────────
+function setSync(state, msg) {
+  document.getElementById('syncDot').className = 'dot ' + state;
+  document.getElementById('syncMsg').textContent = msg;
+}
+
+async function loadFromSheets() {
+  setSync('loading', 'Loading from Google Sheets…');
+  try {
+    const res = await fetch(SCRIPT_URL);
+    allWords = await res.json();
+    setSync('ok', 'Loaded · ' + allWords.length.toLocaleString() + ' words (' + myWords().length.toLocaleString() + ' personal)');
+    document.getElementById('loadingOverlay').style.display = 'none';
+    renderAll();
+  } catch(e) {
+    setSync('error', 'Could not connect — make sure you\'re logged into Google');
+    document.getElementById('loadingOverlay').style.display = 'none';
+  }
+}
+
+async function appendToSheets(w, s) {
+  setSync('saving', 'Saving…');
+  setBusy(true);
+  try {
+    await fetch(SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'append', w, s: s !== null ? s : null }),
+      headers: { 'Content-Type': 'text/plain' }
+    });
+    setSync('ok', 'Saved · ' + allWords.length.toLocaleString() + ' words (' + myWords().length.toLocaleString() + ' personal)');
+  } catch(e) { setSync('error', 'Save failed'); }
+  setBusy(false);
+}
+
+async function deleteFromSheets(w) {
+  setSync('saving', 'Removing…');
+  setBusy(true);
+  try {
+    await fetch(SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'delete', w }),
+      headers: { 'Content-Type': 'text/plain' }
+    });
+    setSync('ok', 'Saved · ' + allWords.length.toLocaleString() + ' words (' + myWords().length.toLocaleString() + ' personal)');
+  } catch(e) { setSync('error', 'Delete failed'); }
+  setBusy(false);
+}
+
+async function bulkSaveToSheets(words) {
+  setSync('saving', 'Saving ' + words.length.toLocaleString() + ' words…');
+  setBusy(true);
+  try {
+    await fetch(SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'bulk', words }),
+      headers: { 'Content-Type': 'text/plain' }
+    });
+    setSync('ok', 'Saved · ' + allWords.length.toLocaleString() + ' words (' + myWords().length.toLocaleString() + ' personal)');
+  } catch(e) { setSync('error', 'Save failed'); }
+  setBusy(false);
+}
+
+function setBusy(val) {
+  busy = val;
+  ['addBtn','bulkBtn','importBtn'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = val;
+  });
+}
+
+// ── Helpers ───────────────────────────────────────────────────
+function norm(w) { return w.trim().toUpperCase().replace(/\s+/g,''); }
+function parseScore(s) { const n = parseInt(s,10); return isNaN(n) ? null : n; }
+function myWords() { return allWords.filter(e => e.mine); }
+
+function sc(s) {
+  if (s===null||s===undefined) return 's-nil';
+  if (s>=70) return 's-hi';
+  if (s>=40) return 's-mid';
+  return 's-lo';
+}
+function sl(s) { return (s===null||s===undefined) ? '—' : s; }
+
+function rowHTML(e) {
+  const delBtn = e.mine
+    ? '<button class="del-btn" onclick="removeWord(\'' + e.w + '\')">×</button>'
+    : '<div class="del-placeholder"></div>';
+  const mineTag = e.mine ? '<span class="mine-tag">mine</span>' : '';
+  return '<div class="word-row' + (e.mine?' is-mine':'') + '">' +
+    '<span class="word-text">' + e.w + '</span>' +
+    '<span class="word-len">' + e.w.length + '</span>' +
+    mineTag +
+    '<span class="score-badge ' + sc(e.s) + '">' + sl(e.s) + '</span>' +
+    delBtn +
+    '</div>';
+}
+
+function getFiltered(filter, search, sort) {
+  const q = (search||'').trim().toUpperCase();
+  let list = allWords.filter(e => {
+    if (q && !e.w.includes(q)) return false;
+    if (filter==='mine') return e.mine;
+    if (filter==='s')  return e.w.length <= 6;
+    if (filter==='m')  return e.w.length >= 7  && e.w.length <= 10;
+    if (filter==='l')  return e.w.length >= 11 && e.w.length <= 14;
+    if (filter==='xl') return e.w.length >= 15;
+    if (filter==='hi') return (e.s??0) >= 70;
+    return true;
+  });
+  if (sort==='alpha')      list.sort((a,b)=>a.w.localeCompare(b.w));
+  if (sort==='zalpha')     list.sort((a,b)=>b.w.localeCompare(a.w));
+  if (sort==='score_hi')   list.sort((a,b)=>(b.s??0)-(a.s??0));
+  if (sort==='score_lo')   list.sort((a,b)=>(a.s??999)-(b.s??999));
+  if (sort==='len_hi')     list.sort((a,b)=>b.w.length-a.w.length);
+  if (sort==='len_lo')     list.sort((a,b)=>a.w.length-b.w.length);
+  if (sort==='mine_first') list.sort((a,b)=>(b.mine?1:0)-(a.mine?1:0));
+  return list;
+}
+
+// ── Actions ───────────────────────────────────────────────────
+async function addWord() {
+  const w = norm(document.getElementById('wordIn').value);
+  const s = parseScore(document.getElementById('scoreIn').value);
+  if (!w) return;
+  if (allWords.find(e => e.w === w)) { flash('addFlash', w + ' is already in the list', 'warn'); return; }
+  allWords.push({ w, s, mine: true });
+  document.getElementById('wordIn').value = '';
+  document.getElementById('scoreIn').value = '';
+  document.getElementById('wordIn').focus();
+  renderAll();
+  flash('addFlash', '✓ ' + w + ' added to My Words', 'good');
+  await appendToSheets(w, s);
+}
+
+async function addBulk() {
+  const lines = document.getElementById('bulkIn').value.split('\n');
+  let added = 0;
+  const newWords = [];
+  lines.forEach(line => {
+    line = line.trim();
+    if (!line || line.startsWith('#')) return;
+    const parts = line.split(';');
+    const w = norm(parts[0]);
+    if (!w) return;
+    const s = parts[1] ? parseScore(parts[1]) : null;
+    if (!allWords.find(e => e.w === w)) {
+      allWords.push({ w, s, mine: true });
+      newWords.push({ w, s });
+      added++;
+    }
+  });
+  document.getElementById('bulkIn').value = '';
+  renderAll();
+  flash('addFlash', '✓ Added ' + added + ' word' + (added!==1?'s':'') + ' to My Words', 'good');
+  // Bulk save just the full My Words list
+  await bulkSaveToSheets(myWords().map(e => ({ w: e.w, s: e.s })));
+}
+
+async function removeWord(w) {
+  allWords = allWords.filter(e => e.w !== w);
+  renderAll();
+  await deleteFromSheets(w);
+}
+
+async function doImport() {
+  const lines = document.getElementById('importText').value.split('\n');
+  let added=0, updated=0;
+  lines.forEach(line => {
+    line = line.trim();
+    if (!line||line.startsWith('#')) return;
+    const parts = line.split(';');
+    const w = norm(parts[0]);
+    if (!w) return;
+    const s = parts[1] ? parseScore(parts[1]) : null;
+    const existing = allWords.find(e=>e.w===w);
+    if (existing && existing.mine) { existing.s=s; updated++; }
+    else if (!existing) { allWords.push({w,s,mine:true}); added++; }
+  });
+  document.getElementById('importText').value = '';
+  document.getElementById('importBtn').disabled = true;
+  renderAll();
+  flash('importFlash', '✓ '+added+' new · '+updated+' updated in My Words', 'good');
+  await bulkSaveToSheets(myWords().map(e => ({ w: e.w, s: e.s })));
+}
+
+function toggleBulk() {
+  bulkOpen = !bulkOpen;
+  document.getElementById('bulkArea').className = 'bulk-area' + (bulkOpen?' open':'');
+  document.getElementById('bulkToggle').textContent = bulkOpen ? '− close' : '+ paste a list';
+}
+
+// ── Render ────────────────────────────────────────────────────
+function renderHeader() {
+  const mine = myWords();
+  document.getElementById('hdrTotal').textContent = allWords.length.toLocaleString();
+  document.getElementById('hdrMine').textContent = mine.length.toLocaleString() + ' personal';
+}
+
+function renderRecent() {
+  const mine = myWords().slice().reverse().slice(0, 30);
+  document.getElementById('myWordsCount').textContent = '(' + myWords().length.toLocaleString() + ')';
+  const el = document.getElementById('recentList');
+  el.innerHTML = mine.length ? mine.map(rowHTML).join('') : '<div class="empty">No personal words yet.</div>';
+}
+
+function renderBrowse() { browsePage = 0; renderBrowsePage(); }
+
+function renderBrowsePage() {
+  const search = document.getElementById('browseSearch').value;
+  const sort   = document.getElementById('browseSort').value;
+  const list   = getFiltered(browseFilter, search, sort);
+  const total  = list.length;
+  const pages  = Math.max(1, Math.ceil(total/PAGE));
+  browsePage   = Math.min(browsePage, pages-1);
+  const slice  = list.slice(browsePage*PAGE, (browsePage+1)*PAGE);
+
+  document.getElementById('browseCount').innerHTML =
+    '<strong>' + total.toLocaleString() + '</strong> of ' + allWords.length.toLocaleString() + ' words';
+  document.getElementById('browseList').innerHTML =
+    slice.length ? slice.map(rowHTML).join('') : '<div class="empty">No matches.</div>';
+
+  const pg = document.getElementById('browsePagination');
+  if (pages <= 1) { pg.innerHTML=''; return; }
+  pg.innerHTML =
+    '<button class="pg-btn" onclick="goPage(0)" '+(browsePage===0?'disabled':'')+'>«</button>' +
+    '<button class="pg-btn" onclick="goPage('+(browsePage-1)+')" '+(browsePage===0?'disabled':'')+'>‹</button>' +
+    '<span class="pg-info">'+(browsePage+1)+' / '+pages+'</span>' +
+    '<button class="pg-btn" onclick="goPage('+(browsePage+1)+')" '+(browsePage===pages-1?'disabled':'')+'>›</button>' +
+    '<button class="pg-btn" onclick="goPage('+(pages-1)+')" '+(browsePage===pages-1?'disabled':'')+'>»</button>';
+}
+
+function goPage(n) { browsePage = n; renderBrowsePage(); }
+
+function setFilter(f, el) {
+  browseFilter = f;
+  document.querySelectorAll('#browsePills .pill').forEach(p=>p.classList.remove('on'));
+  el.classList.add('on');
+  renderBrowse();
+}
+
+function setExportFilter(f, el) {
+  exportFilter = f;
+  document.querySelectorAll('#exportPills .pill').forEach(p=>p.classList.remove('on'));
+  el.classList.add('on');
+  renderExport();
+}
+
+function setExportMode(mode, el) {
+  exportMode = mode;
+  document.querySelectorAll('.export-tab').forEach(t=>t.classList.remove('on'));
+  el.classList.add('on');
+  renderExport();
+}
+
+function getExportList() {
+  const base = exportMode === 'mine' ? allWords.filter(e=>e.mine) : allWords;
+  return base.filter(e => {
+    if (exportFilter==='s')  return e.w.length <= 6;
+    if (exportFilter==='m')  return e.w.length >= 7  && e.w.length <= 10;
+    if (exportFilter==='l')  return e.w.length >= 11 && e.w.length <= 14;
+    if (exportFilter==='xl') return e.w.length >= 15;
+    if (exportFilter==='hi') return (e.s??0) >= 70;
+    return true;
+  }).sort((a,b)=>a.w.localeCompare(b.w));
+}
+
+function exportText() {
+  return getExportList().map(e => e.s!==null ? e.w+';'+e.s : e.w).join('\n');
+}
+
+function renderExport() {
+  const list = getExportList();
+  document.getElementById('exportCount').innerHTML =
+    '<strong>' + list.length.toLocaleString() + '</strong> words';
+  const preview = list.slice(0,120).map(e=>e.s!==null?e.w+';'+e.s:e.w).join('\n')
+    + (list.length>120?'\n… and '+(list.length-120)+' more':'');
+  document.getElementById('exportPreview').textContent = list.length ? preview : '(no words)';
+  document.getElementById('copyBtn').textContent = 'Copy ' + list.length.toLocaleString() + ' words';
+}
+
+function doCopy() {
+  navigator.clipboard?.writeText(exportText());
+  flash('exportFlash', '✓ Copied ' + getExportList().length.toLocaleString() + ' words', 'good');
+}
+
+function doDownload() {
+  const blob = new Blob([exportText()], {type:'text/plain'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = exportMode === 'mine' ? 'my-words.txt' : 'wordlist.txt';
+  a.click();
+  flash('exportFlash', '✓ Downloaded', 'good');
+}
+
+function flash(id, msg, type) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.className = 'flash flash-' + type;
+  setTimeout(()=>{ el.textContent=''; }, 3000);
+}
+
+function renderAll() {
+  renderHeader();
+  renderRecent();
+  renderBrowsePage();
+  renderExport();
+}
+
+function switchTab(id) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelector('.tab[data-id="'+id+'"]').classList.add('active');
+  document.getElementById('panel-'+id).classList.add('active');
+  if (id==='browse') renderBrowse();
+  if (id==='export') renderExport();
+}
+
+document.getElementById('importText').addEventListener('input', function() {
+  document.getElementById('importBtn').disabled = !this.value.trim();
+});
+document.getElementById('wordIn').addEventListener('keydown', e => { if(e.key==='Enter') addWord(); });
+document.getElementById('scoreIn').addEventListener('keydown', e => { if(e.key==='Enter') addWord(); });
+
+loadFromSheets();
+</script>
+</body>
+</html>
