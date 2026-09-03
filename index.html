@@ -186,9 +186,42 @@
 
 <div class="tabs">
   <button class="tab active" data-id="lookup" onclick="switchTab('lookup')">Lookup</button>
+  <button class="tab"        data-id="bulk"   onclick="switchTab('bulk')">Bulk</button>
   <button class="tab"        data-id="browse" onclick="switchTab('browse')">Browse</button>
   <button class="tab"        data-id="export" onclick="switchTab('export')">Export</button>
   <button class="tab"        data-id="sync"   onclick="switchTab('sync')">Sync</button>
+</div>
+
+<!-- BULK ADD -->
+<div class="panel" id="panel-bulk">
+  <div class="section-head">Bulk</div>
+  <div style="font-size:13px;color:var(--gray-text);margin-bottom:16px;line-height:1.7">
+    Paste one word per line and assign a score to all of them at once.<br>
+    New words will be added. Existing words will have their score updated.
+  </div>
+
+  <div style="margin-bottom:14px">
+    <div style="font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--gray-text);margin-bottom:8px">Words (one per line)</div>
+    <textarea id="bulkWords" rows="10" placeholder="DOOMSCROLL&#10;TRADWIFE&#10;ROMANTASY&#10;VIBEY"></textarea>
+  </div>
+
+  <div style="margin-bottom:18px">
+    <div style="font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--gray-text);margin-bottom:8px">Score for all words</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <input type="text" id="bulkScore" style="width:80px;text-align:center;font-size:18px;font-weight:500" placeholder="—" autocomplete="off" />
+      <div style="display:flex;gap:5px">
+        <button class="preset" onclick="document.getElementById('bulkScore').value=40">40</button>
+        <button class="preset" onclick="document.getElementById('bulkScore').value=50">50</button>
+        <button class="preset" onclick="document.getElementById('bulkScore').value=60">60</button>
+        <button class="preset" onclick="document.getElementById('bulkScore').value=70">70</button>
+      </div>
+    </div>
+  </div>
+
+  <button onclick="doBulkAdd()" style="width:100%;padding:14px;background:var(--accent);border:2px solid var(--accent);color:var(--white);font-family:var(--mono);font-size:14px;font-weight:500;cursor:pointer;letter-spacing:0.08em;text-transform:uppercase;transition:background 0.1s" onmouseover="this.style.background='var(--accent-dark)'" onmouseout="this.style.background='var(--accent)'">Add All Words</button>
+
+  <div class="flash" id="bulkFlash" style="margin-top:12px"></div>
+  <div id="bulkSummary" style="margin-top:12px;font-size:13px;color:var(--gray-text);line-height:1.8;display:none"></div>
 </div>
 
 <!-- LOOKUP -->
@@ -417,7 +450,7 @@ async function pushPending() {
   try {
     for (const op of ops) {
       if (op.action === 'upsert') {
-        await sbPost('/rest/v1/words?on_conflict=word', { word: op.word, score: op.score, mine: true, notes: op.notes || null });
+        await sbPost('/rest/v1/words?on_conflict=word', { word: op.word, score: op.score, length: op.word.length, mine: true });
       } else if (op.action === 'update_score') {
         await sbPatch('/rest/v1/words?word=eq.' + encodeURIComponent(op.word), { score: op.score });
       } else if (op.action === 'delete') {
@@ -676,6 +709,44 @@ function setExportPill(f, el) {
   document.querySelectorAll('#exportPills .pill').forEach(p=>p.classList.remove('on'));
   el.classList.add('on');
   renderExport();
+}
+
+async function doBulkAdd() {
+  const raw = document.getElementById('bulkWords').value;
+  const scoreVal = document.getElementById('bulkScore').value.trim();
+  const s = scoreVal === '' ? null : parseInt(scoreVal, 10);
+  const lines = raw.split('\n').map(l => norm(l)).filter(l => l.length > 0);
+
+  if (lines.length === 0) { flash('bulkFlash', 'No words to add', 'warn'); return; }
+
+  let added = 0, updated = 0;
+  lines.forEach(w => {
+    if (words[w]) { updated++; } else { added++; }
+    words[w] = { score: s, mine: true };
+  });
+
+  saveLocal();
+  renderAll();
+
+  document.getElementById('bulkSummary').style.display = 'block';
+  document.getElementById('bulkSummary').innerHTML =
+    '<strong>' + lines.length + ' words processed</strong><br>' +
+    added + ' new · ' + updated + ' updated · score: ' + (s !== null ? s : '—');
+
+  flash('bulkFlash', '✓ Syncing to Supabase…', 'good');
+
+  try {
+    const payload = lines.map(w => ({ word: w, score: s, length: w.length, mine: true }));
+    await sbPost('/rest/v1/words?on_conflict=word', payload);
+    flash('bulkFlash', '✓ ' + lines.length + ' words saved', 'good');
+    setStatus('ok', 'Synced · ' + Object.keys(words).length.toLocaleString() + ' words');
+  } catch(e) {
+    lines.forEach(w => queueOp({ action: 'upsert', word: w, score: s }));
+    flash('bulkFlash', '✓ Queued — will sync shortly', 'warn');
+  }
+
+  document.getElementById('bulkWords').value = '';
+  document.getElementById('bulkScore').value = '';
 }
 
 function doCopy() {
