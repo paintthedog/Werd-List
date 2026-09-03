@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Werd List</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Serif+Text&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --black: #0a0a0a; --white: #ffffff;
+    --accent: #f700c8; --accent-dark: #c200a0; --accent-light: #fff0fc;
+    --gray-light: #f4f4f4; --gray-mid: #d0d0d0; --gray-text: #555555;
+    --green: #1a5c2a; --green-bg: #edfdf3; --green-border: #86efac;
+    --serif: 'DM Serif Text', Georgia, serif;
+    --mono: 'DM Mono', 'Courier New', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--mono); background: var(--white); color: var(--black); min-height: 100vh; font-size: 15px; }
+
+  .header { background: var(--black); padding: 18px 24px; display: flex; align-items: center; justify-content: space-between; border-bottom: 4px solid var(--accent); }
+  .header-title { font-family: var(--serif); font-size: 30px; color: var(--white); }
+  .header-right { text-align: right; }
+  .hdr-num { font-family: var(--serif); font-size: 26px; color: var(--accent); line-height: 1; }
+  .hdr-label { font-size: 10px; color: var(--gray-mid); letter-spacing: 0.14em; text-transform: uppercase; margin-top: 2px; }
+
+  .status-bar { padding: 5px 24px; font-size: 12px; display: flex; align-items: center; gap: 8px; min-height: 26px; background: var(--gray-light); border-bottom: 1px solid var(--gray-mid); color: var(--gray-text); }
+  .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .dot.ok      { background: #16a34a; }
+  .dot.syncing { background: #d97706; }
+  .dot.error   { background: var(--accent); }
+  .dot.loading { background: var(--gray-mid); }
+  .dot.cached  { background: #6366f1; }
+  .pending-badge { margin-left: auto; font-size: 11px; color: #d97706; font-weight: 500; }
+
+  .tabs { display: flex; background: var(--black); overflow-x: auto; }
+  .tab { flex-shrink: 0; padding: 12px 18px; border: none; background: none; font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; color: var(--gray-mid); border-bottom: 3px solid transparent; transition: color 0.1s; }
+  .tab:hover { color: var(--white); }
+  .tab.active { color: var(--white); border-bottom-color: var(--accent); }
+
+  .panel { padding: 22px; display: none; max-width: 640px; }
+  .panel.active { display: block; }
+  .section-head { font-family: var(--serif); font-size: 22px; margin-bottom: 14px; }
+
+  input[type=text], textarea, select {
+    font-family: var(--mono); background: var(--white); border: 2px solid var(--black);
+    color: var(--black); outline: none; padding: 10px 14px; font-size: 15px; width: 100%;
+    transition: border-color 0.1s; border-radius: 0; -webkit-appearance: none;
+  }
+  input:focus, textarea:focus, select:focus { border-color: var(--accent); }
+  input::placeholder, textarea::placeholder { color: var(--gray-mid); }
+  textarea { resize: vertical; line-height: 1.8; font-size: 13px; }
+  select { cursor: pointer; }
+
+  /* Lookup */
+  .lookup-row { display: flex; gap: 0; margin-bottom: 16px; }
+  .lookup-row input { flex: 1; font-size: 22px; font-weight: 500; letter-spacing: 0.08em; border-right: none; }
+  .lookup-btn { flex-shrink: 0; background: var(--accent); border: 2px solid var(--accent); color: var(--white); font-family: var(--mono); font-size: 14px; font-weight: 500; padding: 0 20px; cursor: pointer; letter-spacing: 0.06em; text-transform: uppercase; transition: background 0.1s; white-space: nowrap; }
+  .lookup-btn:hover { background: var(--accent-dark); }
+
+  .result-box { border: 2px solid; padding: 16px 18px; margin-bottom: 14px; display: none; }
+  .result-box.found    { border-color: var(--green-border); background: var(--green-bg); }
+  .result-box.notfound { border-color: var(--gray-mid); background: var(--gray-light); }
+  .result-word { font-family: var(--mono); font-size: 22px; font-weight: 500; letter-spacing: 0.08em; margin-bottom: 6px; }
+  .result-box.found    .result-word { color: var(--green); }
+  .result-box.notfound .result-word { color: var(--gray-text); }
+  .result-meta { font-size: 12px; color: var(--gray-text); margin-bottom: 12px; }
+
+  .score-editor { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .score-editor label { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gray-text); }
+  .score-input { width: 72px !important; text-align: center; font-size: 16px !important; font-weight: 500; }
+  .score-presets { display: flex; gap: 4px; }
+  .preset { padding: 4px 10px; border: 2px solid var(--black); background: var(--white); color: var(--black); font-family: var(--mono); font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.1s; }
+  .preset:hover { background: var(--black); color: var(--white); }
+  .save-score-btn { padding: 7px 14px; background: var(--black); border: 2px solid var(--black); color: var(--white); font-family: var(--mono); font-size: 12px; font-weight: 500; cursor: pointer; letter-spacing: 0.06em; text-transform: uppercase; transition: background 0.1s; white-space: nowrap; }
+  .save-score-btn:hover { background: #333; }
+  .save-score-btn:disabled { background: var(--gray-mid); border-color: var(--gray-mid); cursor: default; }
+
+  .add-from-lookup { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .add-from-lookup label { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gray-text); }
+  .add-lookup-btn { padding: 7px 14px; background: var(--accent); border: 2px solid var(--accent); color: var(--white); font-family: var(--mono); font-size: 12px; font-weight: 500; cursor: pointer; letter-spacing: 0.06em; text-transform: uppercase; transition: background 0.1s; white-space: nowrap; }
+  .add-lookup-btn:hover { background: var(--accent-dark); }
+
+  .flash { font-size: 13px; font-weight: 500; min-height: 18px; margin-top: 8px; }
+  .flash-good { color: var(--green); }
+  .flash-warn { color: #92400e; }
+  .flash-err  { color: var(--accent); }
+
+  hr { border: none; border-top: 2px solid var(--black); margin: 20px 0; }
+
+  /* Browse */
+  .browse-row { display: flex; gap: 0; margin-bottom: 12px; }
+  .browse-row input { flex: 1; border-right: none; }
+  .browse-row select { width: 150px; flex-shrink: 0; font-size: 13px; }
+
+  .pills { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 14px; }
+  .pill { padding: 4px 12px; font-family: var(--mono); font-size: 11px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; border: 2px solid var(--black); color: var(--black); background: var(--white); transition: all 0.1s; }
+  .pill:hover { background: var(--gray-light); }
+  .pill.on { background: var(--black); color: var(--white); }
+
+  .word-count { font-size: 13px; color: var(--gray-text); margin-bottom: 10px; }
+  .word-count strong { color: var(--black); font-weight: 500; }
+
+  .word-list { display: flex; flex-direction: column; max-height: 480px; overflow-y: auto; border: 2px solid var(--black); }
+  .word-row { display: flex; align-items: center; padding: 8px 12px; gap: 10px; border-bottom: 1px solid var(--gray-mid); background: var(--white); transition: background 0.06s; }
+  .word-row:last-child { border-bottom: none; }
+  .word-row:hover { background: var(--gray-light); }
+  .word-row.is-mine { background: var(--green-bg); }
+  .wtext { font-family: var(--mono); font-size: 14px; font-weight: 500; letter-spacing: 0.05em; flex: 1; color: var(--black); cursor: pointer; }
+  .wtext:hover { text-decoration: underline; text-underline-offset: 3px; }
+  .wlen { font-size: 11px; color: var(--gray-mid); width: 20px; text-align: right; flex-shrink: 0; }
+
+  .inline-score { width: 52px !important; padding: 3px 6px !important; font-size: 12px !important; border: 1px solid var(--gray-mid) !important; text-align: center; }
+  .inline-score:focus { border-color: var(--accent) !important; }
+  .inline-save { background: none; border: none; color: var(--green); font-size: 16px; cursor: pointer; padding: 0 2px; line-height: 1; font-family: var(--mono); font-weight: 500; }
+
+  .pagination { display: flex; gap: 0; border: 2px solid var(--black); border-top: none; }
+  .pg-btn { flex: 1; background: var(--white); border: none; border-right: 1px solid var(--gray-mid); color: var(--black); font-family: var(--mono); font-size: 12px; font-weight: 500; padding: 9px; cursor: pointer; transition: background 0.1s; }
+  .pg-btn:last-child { border-right: none; }
+  .pg-btn:hover:not(:disabled) { background: var(--black); color: var(--white); }
+  .pg-btn:disabled { color: var(--gray-mid); cursor: default; }
+  .pg-info { flex: 2; display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--gray-text); border-right: 1px solid var(--gray-mid); }
+
+  /* Export */
+  .export-mode-tabs { display: flex; gap: 0; margin-bottom: 14px; }
+  .etab { flex: 1; padding: 10px; border: 2px solid var(--black); background: var(--white); color: var(--black); font-family: var(--mono); font-size: 11px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; transition: all 0.1s; }
+  .etab:not(:last-child) { border-right: 1px solid var(--black); }
+  .etab.on { background: var(--black); color: var(--white); }
+
+  .export-preview { background: var(--gray-light); border: 2px solid var(--black); padding: 12px 14px; font-family: var(--mono); font-size: 12px; color: var(--gray-text); line-height: 2; max-height: 200px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; margin-bottom: 14px; }
+  .export-btns { display: flex; gap: 0; }
+  .ebtn-copy { flex: 1; padding: 13px; border: 2px solid var(--accent); border-right: 1px solid var(--accent); background: var(--accent); color: var(--white); font-family: var(--mono); font-size: 13px; font-weight: 500; cursor: pointer; letter-spacing: 0.06em; text-transform: uppercase; transition: background 0.1s; }
+  .ebtn-copy:hover { background: var(--accent-dark); }
+  .ebtn-dl { flex: 1; padding: 13px; border: 2px solid var(--black); border-left: 1px solid var(--black); background: var(--black); color: var(--white); font-family: var(--mono); font-size: 13px; font-weight: 500; cursor: pointer; letter-spacing: 0.06em; text-transform: uppercase; transition: background 0.1s; }
+  .ebtn-dl:hover { background: #333; }
+
+  /* Sync panel */
+  .sync-info { font-size: 13px; color: var(--gray-text); line-height: 1.9; margin-bottom: 18px; }
+  .sync-info strong { color: var(--black); }
+  .sync-actions { display: flex; gap: 0; margin-bottom: 10px; }
+  .sync-btn { flex: 1; padding: 13px; border: 2px solid var(--black); background: var(--black); color: var(--white); font-family: var(--mono); font-size: 12px; font-weight: 500; cursor: pointer; letter-spacing: 0.06em; text-transform: uppercase; transition: background 0.1s; }
+  .sync-btn:not(:last-child) { border-right: 1px solid #333; }
+  .sync-btn:hover { background: #333; }
+  .sync-btn.danger { background: var(--accent); border-color: var(--accent); }
+  .sync-btn.danger:hover { background: var(--accent-dark); }
+
+  /* Score badge */
+  .sbadge { display: inline-block; font-size: 12px; font-weight: 500; padding: 2px 8px; border: 2px solid; min-width: 36px; text-align: center; font-family: var(--mono); }
+  .s-hi  { color: #1a5c2a; border-color: #1a5c2a; background: #edfdf3; }
+  .s-mid { color: #92400e; border-color: #92400e; background: #fef3c7; }
+  .s-lo  { color: var(--accent-dark); border-color: var(--accent); background: var(--accent-light); }
+  .s-nil { color: var(--gray-text); border-color: var(--gray-mid); background: var(--gray-light); }
+
+  /* Loading overlay */
+  .overlay { position: fixed; inset: 0; background: rgba(255,255,255,0.96); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 200; gap: 14px; font-family: var(--mono); }
+  .overlay-title { font-family: var(--serif); font-size: 28px; }
+  .overlay-msg { font-size: 13px; color: var(--gray-text); letter-spacing: 0.06em; }
+  .progress { width: 240px; height: 3px; background: var(--gray-mid); }
+  .progress-fill { height: 100%; background: var(--accent); transition: width 0.4s; }
+
+  .word-list::-webkit-scrollbar { width: 5px; }
+  .word-list::-webkit-scrollbar-track { background: var(--gray-light); }
+  .word-list::-webkit-scrollbar-thumb { background: var(--gray-mid); }
+</style>
+</head>
+<body>
+
+<div class="overlay" id="overlay">
+  <div class="overlay-title">Werd List</div>
+  <div class="overlay-msg" id="overlayMsg">Loading…</div>
+  <div class="progress"><div class="progress-fill" id="progressFill" style="width:10%"></div></div>
+</div>
+
+<div class="header">
+  <div class="header-title">Werd List</div>
+  <div class="header-right">
+    <div class="hdr-num" id="hdrNum">0</div>
+    <div class="hdr-label">words</div>
+  </div>
+</div>
+
+<div class="status-bar">
+  <div class="dot loading" id="sDot"></div>
+  <span id="sMsg">Loading…</span>
+  <span class="pending-badge" id="pendingBadge" style="display:none"></span>
+</div>
+
+<div class="tabs">
+  <button class="tab active" data-id="lookup" onclick="switchTab('lookup')">Lookup</button>
+  <button class="tab"        data-id="bulk"   onclick="switchTab('bulk')">Bulk</button>
+  <button class="tab"        data-id="browse" onclick="switchTab('browse')">Browse</button>
+  <button class="tab"        data-id="export" onclick="switchTab('export')">Export</button>
+  <button class="tab"        data-id="sync"   onclick="switchTab('sync')">Sync</button>
+</div>
+
+<!-- BULK ADD -->
+<div class="panel" id="panel-bulk">
+  <div class="section-head">Bulk</div>
+  <div style="font-size:13px;color:var(--gray-text);margin-bottom:16px;line-height:1.7">
+    Paste one word per line and assign a score to all of them at once.<br>
+    New words will be added. Existing words will have their score updated.
+  </div>
+
+  <div style="margin-bottom:14px">
+    <div style="font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--gray-text);margin-bottom:8px">Words (one per line)</div>
+    <textarea id="bulkWords" rows="10" placeholder="DOOMSCROLL&#10;TRADWIFE&#10;ROMANTASY&#10;VIBEY"></textarea>
+  </div>
+
+  <div style="margin-bottom:18px">
+    <div style="font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--gray-text);margin-bottom:8px">Score for all words</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <input type="text" id="bulkScore" style="width:80px;text-align:center;font-size:18px;font-weight:500" placeholder="—" autocomplete="off" />
+      <div style="display:flex;gap:5px">
+        <button class="preset" onclick="document.getElementById('bulkScore').value=40">40</button>
+        <button class="preset" onclick="document.getElementById('bulkScore').value=50">50</button>
+        <button class="preset" onclick="document.getElementById('bulkScore').value=60">60</button>
+        <button class="preset" onclick="document.getElementById('bulkScore').value=70">70</button>
+      </div>
+    </div>
+  </div>
+
+  <button onclick="doBulkAdd()" style="width:100%;padding:14px;background:var(--accent);border:2px solid var(--accent);color:var(--white);font-family:var(--mono);font-size:14px;font-weight:500;cursor:pointer;letter-spacing:0.08em;text-transform:uppercase;transition:background 0.1s" onmouseover="this.style.background='var(--accent-dark)'" onmouseout="this.style.background='var(--accent)'">Add All Words</button>
+
+  <div class="flash" id="bulkFlash" style="margin-top:12px"></div>
+  <div id="bulkSummary" style="margin-top:12px;font-size:13px;color:var(--gray-text);line-height:1.8;display:none"></div>
+</div>
+
+<!-- LOOKUP -->
+<div class="panel active" id="panel-lookup">
+  <div class="section-head">Check a word</div>
+  <div class="lookup-row">
+    <input type="text" id="lookupInput" placeholder="WORD" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" />
+    <button class="lookup-btn" onclick="doLookup()">Check</button>
+  </div>
+
+  <div class="result-box" id="resultBox">
+    <div class="result-word" id="resultWord"></div>
+    <div class="result-meta" id="resultMeta"></div>
+    <div class="score-editor" id="scoreEditor">
+      <label>Score</label>
+      <input type="text" class="score-input" id="scoreEditInput" autocomplete="off" />
+      <div class="score-presets">
+        <button class="preset" onclick="setPreset(40)">40</button>
+        <button class="preset" onclick="setPreset(50)">50</button>
+        <button class="preset" onclick="setPreset(60)">60</button>
+        <button class="preset" onclick="setPreset(70)">70</button>
+      </div>
+      <button class="save-score-btn" id="saveScoreBtn" onclick="saveScore()">Save</button>
+    </div>
+    <div class="add-from-lookup" id="addFromLookup" style="display:none">
+      <label>Score</label>
+      <input type="text" class="score-input" id="addScoreInput" autocomplete="off" placeholder="—" />
+      <div class="score-presets">
+        <button class="preset" onclick="setAddPreset(40)">40</button>
+        <button class="preset" onclick="setAddPreset(50)">50</button>
+        <button class="preset" onclick="setAddPreset(60)">60</button>
+        <button class="preset" onclick="setAddPreset(70)">70</button>
+      </div>
+      <button class="add-lookup-btn" onclick="addFromLookup()">+ Add</button>
+    </div>
+  </div>
+  <div class="flash" id="lookupFlash"></div>
+</div>
+
+<!-- BROWSE -->
+<div class="panel" id="panel-browse">
+  <div class="section-head">Browse</div>
+  <div class="browse-row">
+    <input type="text" id="browseSearch" placeholder="Filter…" oninput="renderBrowse()" autocomplete="off" autocorrect="off" spellcheck="false" autocapitalize="characters" />
+    <select id="browseSort" onchange="renderBrowse()">
+      <option value="alpha">A → Z</option>
+      <option value="zalpha">Z → A</option>
+      <option value="score_hi">Score ↓</option>
+      <option value="score_lo">Score ↑</option>
+      <option value="len_hi">Longest</option>
+      <option value="len_lo">Shortest</option>
+    </select>
+  </div>
+  <div class="pills" id="browsePills">
+    <button class="pill on" data-f="all"  onclick="setPill('all',this)">All</button>
+    <button class="pill"    data-f="mine" onclick="setPill('mine',this)">My words</button>
+    <button class="pill"    data-f="s"    onclick="setPill('s',this)">≤ 6</button>
+    <button class="pill"    data-f="m"    onclick="setPill('m',this)">7–10</button>
+    <button class="pill"    data-f="l"    onclick="setPill('l',this)">11–14</button>
+    <button class="pill"    data-f="xl"   onclick="setPill('xl',this)">15+</button>
+    <button class="pill"    data-f="hi"   onclick="setPill('hi',this)">Score ≥ 70</button>
+    <button class="pill"    data-f="none" onclick="setPill('none',this)">No score</button>
+  </div>
+  <div class="word-count" id="browseCount"></div>
+  <div class="word-list" id="browseList"></div>
+  <div class="pagination" id="browsePag"></div>
+</div>
+
+<!-- EXPORT -->
+<div class="panel" id="panel-export">
+  <div class="section-head">Export</div>
+  <div class="export-mode-tabs">
+    <button class="etab on" onclick="setExportMode('all',this)">All words</button>
+    <button class="etab"    onclick="setExportMode('mine',this)">My words</button>
+    <button class="etab"    onclick="setExportMode('hi',this)">Score ≥ 70</button>
+  </div>
+  <div class="pills" id="exportPills">
+    <button class="pill on" data-ef="all" onclick="setExportPill('all',this)">All lengths</button>
+    <button class="pill"    data-ef="s"   onclick="setExportPill('s',this)">≤ 6</button>
+    <button class="pill"    data-ef="m"   onclick="setExportPill('m',this)">7–10</button>
+    <button class="pill"    data-ef="l"   onclick="setExportPill('l',this)">11–14</button>
+    <button class="pill"    data-ef="xl"  onclick="setExportPill('xl',this)">15+</button>
+  </div>
+  <div class="word-count" id="exportCount"></div>
+  <div class="export-preview" id="exportPreview"></div>
+  <div class="export-btns">
+    <button class="ebtn-copy" id="copyBtn" onclick="doCopy()">Copy</button>
+    <button class="ebtn-dl" onclick="doDownload()">Download .txt</button>
+  </div>
+  <div class="flash" id="exportFlash"></div>
+</div>
+
+<!-- SYNC -->
+<div class="panel" id="panel-sync">
+  <div class="section-head">Sync & Cache</div>
+  <div class="sync-info">
+    Words are cached locally for speed. Supabase is the source of truth.<br><br>
+    <strong>Last full sync:</strong> <span id="lastSync">—</span><br>
+    <strong>Cached words:</strong> <span id="cachedCount">0</span><br>
+    <strong>Pending changes:</strong> <span id="pendingCount">0</span>
+  </div>
+  <div class="sync-actions">
+    <button class="sync-btn" onclick="forceFresh()">↓ Refresh from Supabase</button>
+    <button class="sync-btn" onclick="pushPending()">↑ Push pending</button>
+  </div>
+  <div class="sync-actions">
+    <button class="sync-btn danger" onclick="clearCache()">Clear local cache</button>
+  </div>
+  <div class="flash" id="syncFlash"></div>
+</div>
+
+<script>
+// ── Config ────────────────────────────────────────────────────
+const SB_URL  = 'https://tekaoummwkyvmcwpwdvc.supabase.co';
+const SB_KEY  = 'sb_publishable_n9SsvzAWvAzYLLJHdkiXUw_P42z8aQ3';
+const HEADERS = { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' };
+
+const LS_WORDS   = 'wl-sb-words-v1';
+const LS_SYNC    = 'wl-sb-sync-v1';
+const LS_PENDING = 'wl-sb-pending-v1';
+const PAGE       = 100;
+const CACHE_TTL  = 12 * 60 * 60 * 1000; // 12 hours
+
+let words    = {};   // { WORD: { score, mine, notes } }
+let pending  = [];   // queued ops
+let browseFilter = 'all';
+let exportMode   = 'all';
+let exportFilter = 'all';
+let browsePage   = 0;
+let currentLookup = null;
+
+// ── Supabase helpers ──────────────────────────────────────────
+async function sbGet(path) {
+  const res = await fetch(SB_URL + path, { headers: HEADERS });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+async function sbPost(path, body) {
+  const res = await fetch(SB_URL + path, { method: 'POST', headers: HEADERS, body: JSON.stringify(body) });
+  if (!res.ok) throw new Error(await res.text());
+}
+
+async function sbPatch(path, body) {
+  const res = await fetch(SB_URL + path, { method: 'PATCH', headers: { ...HEADERS, 'Prefer': 'return=minimal' }, body: JSON.stringify(body) });
+  if (!res.ok) throw new Error(await res.text());
+}
+
+async function sbDelete(path) {
+  const res = await fetch(SB_URL + path, { method: 'DELETE', headers: HEADERS });
+  if (!res.ok) throw new Error(await res.text());
+}
+
+// ── Fetch all words from Supabase (paginated) ─────────────────
+async function fetchAllWords() {
+  let all = [];
+  let from = 0;
+  const batchSize = 1000;
+  while (true) {
+    const batch = await sbGet(`/rest/v1/words?select=word,score,mine,notes&order=word.asc&limit=${batchSize}&offset=${from}`);
+    all = all.concat(batch);
+    setProgress(Math.min(90, 10 + (all.length / 280000) * 80));
+    setOverlayMsg('Loading… ' + all.length.toLocaleString() + ' words');
+    if (batch.length < batchSize) break;
+    from += batchSize;
+  }
+  return all;
+}
+
+// ── Init ──────────────────────────────────────────────────────
+async function init() {
+  loadLocal();
+  const cached = Object.keys(words).length;
+  const stale  = Date.now() - getLastSync() > CACHE_TTL;
+
+  if (cached > 0) {
+    setProgress(100);
+    setOverlayMsg('Loaded from cache');
+    setTimeout(hideOverlay, 300);
+    setStatus('cached', 'From cache · ' + cached.toLocaleString() + ' words' + (stale ? ' · refreshing…' : ''));
+    renderAll();
+    if (stale) fetchAndCache(false);
+    else if (pending.length > 0) pushPending();
+  } else {
+    setOverlayMsg('Connecting to Supabase…');
+    await fetchAndCache(true);
+  }
+}
+
+async function fetchAndCache(showOverlay) {
+  if (!showOverlay) setStatus('syncing', 'Refreshing from Supabase…');
+  try {
+    const data = await fetchAllWords();
+    words = {};
+    data.forEach(r => {
+      words[r.word.toUpperCase()] = { score: r.score, mine: r.mine || false, notes: r.notes || '' };
+    });
+    localStorage.setItem(LS_SYNC, Date.now().toString());
+    saveLocal();
+    setStatus('ok', 'Synced · ' + Object.keys(words).length.toLocaleString() + ' words');
+    renderAll();
+    if (showOverlay) { setProgress(100); setTimeout(hideOverlay, 300); }
+    if (pending.length > 0) pushPending();
+  } catch(e) {
+    setStatus('error', 'Could not connect to Supabase — ' + e.message);
+    if (showOverlay) hideOverlay();
+  }
+}
+
+// ── Pending queue ─────────────────────────────────────────────
+function queueOp(op) {
+  pending.push(op);
+  saveLocal();
+  updateBadge();
+  clearTimeout(window._pushTimer);
+  window._pushTimer = setTimeout(pushPending, 1500);
+}
+
+async function pushPending() {
+  if (pending.length === 0) return;
+  setStatus('syncing', 'Syncing…');
+  const ops = [...pending];
+  pending = [];
+  saveLocal();
+  updateBadge();
+  try {
+    for (const op of ops) {
+      if (op.action === 'upsert') {
+        await sbPost('/rest/v1/words?on_conflict=word', { word: op.word, score: op.score, length: op.word.length, mine: true });
+      } else if (op.action === 'update_score') {
+        await sbPatch('/rest/v1/words?word=eq.' + encodeURIComponent(op.word), { score: op.score });
+      } else if (op.action === 'delete') {
+        await sbDelete('/rest/v1/words?word=eq.' + encodeURIComponent(op.word));
+      }
+    }
+    setStatus('ok', 'Synced · ' + Object.keys(words).length.toLocaleString() + ' words');
+  } catch(e) {
+    pending = [...ops, ...pending];
+    saveLocal();
+    updateBadge();
+    setStatus('error', 'Sync failed — ' + pending.length + ' changes queued');
+  }
+}
+
+async function forceFresh() {
+  await fetchAndCache(false);
+  flash('syncFlash', '✓ Refreshed from Supabase', 'good');
+  updateSyncPanel();
+}
+
+function clearCache() {
+  if (!confirm('Clear local cache? Supabase data is unaffected.')) return;
+  localStorage.removeItem(LS_WORDS);
+  localStorage.removeItem(LS_SYNC);
+  words = {};
+  renderAll();
+  flash('syncFlash', '✓ Cache cleared', 'good');
+}
+
+// ── Local storage ─────────────────────────────────────────────
+function saveLocal() {
+  try {
+    localStorage.setItem(LS_WORDS, JSON.stringify(words));
+    localStorage.setItem(LS_PENDING, JSON.stringify(pending));
+  } catch(e) {}
+}
+
+function loadLocal() {
+  try {
+    const w = localStorage.getItem(LS_WORDS); if (w) words = JSON.parse(w);
+    const p = localStorage.getItem(LS_PENDING); if (p) pending = JSON.parse(p);
+  } catch(e) {}
+}
+
+function getLastSync() { return parseInt(localStorage.getItem(LS_SYNC) || '0', 10); }
+
+// ── Status / overlay ──────────────────────────────────────────
+function setStatus(state, msg) {
+  document.getElementById('sDot').className = 'dot ' + state;
+  document.getElementById('sMsg').textContent = msg;
+  updateBadge();
+}
+
+function updateBadge() {
+  const el = document.getElementById('pendingBadge');
+  el.style.display = pending.length > 0 ? 'inline' : 'none';
+  if (pending.length > 0) el.textContent = pending.length + ' pending';
+  document.getElementById('hdrNum').textContent = Object.keys(words).length.toLocaleString();
+}
+
+function setOverlayMsg(m) { document.getElementById('overlayMsg').textContent = m; }
+function setProgress(p)   { document.getElementById('progressFill').style.width = p + '%'; }
+function hideOverlay()    { document.getElementById('overlay').style.display = 'none'; }
+
+// ── Helpers ───────────────────────────────────────────────────
+function norm(w)       { return w.trim().toUpperCase().replace(/\s+/g,''); }
+function parseScore(s) { const n = parseInt(s,10); return isNaN(n) ? null : n; }
+
+function sbadge(s) {
+  const cls = s===null||s===undefined ? 's-nil' : s>=70 ? 's-hi' : s>=40 ? 's-mid' : 's-lo';
+  return '<span class="sbadge ' + cls + '">' + (s===null||s===undefined?'—':s) + '</span>';
+}
+
+// ── Lookup ────────────────────────────────────────────────────
+function doLookup() {
+  const w = norm(document.getElementById('lookupInput').value);
+  if (!w) return;
+  currentLookup = w;
+  const entry = words[w];
+  const box = document.getElementById('resultBox');
+
+  document.getElementById('resultWord').textContent = w;
+
+  if (entry !== undefined) {
+    box.className = 'result-box found';
+    document.getElementById('resultMeta').innerHTML =
+      'In list · ' + w.length + ' letters · ' + sbadge(entry.score) +
+      (entry.mine ? ' &nbsp;<span style="font-size:10px;color:var(--green);border:1px solid var(--green-border);padding:1px 5px;font-family:var(--mono)">mine</span>' : '');
+    document.getElementById('scoreEditInput').value = entry.score !== null && entry.score !== undefined ? entry.score : '';
+    document.getElementById('scoreEditor').style.display = 'flex';
+    document.getElementById('addFromLookup').style.display = 'none';
+  } else {
+    box.className = 'result-box notfound';
+    document.getElementById('resultMeta').textContent = 'Not in list · ' + w.length + ' letters';
+    document.getElementById('scoreEditor').style.display = 'none';
+    document.getElementById('addFromLookup').style.display = 'flex';
+    document.getElementById('addScoreInput').value = '';
+  }
+
+  box.style.display = 'block';
+  document.getElementById('lookupFlash').textContent = '';
+}
+
+function setPreset(n)    { document.getElementById('scoreEditInput').value = n; }
+function setAddPreset(n) { document.getElementById('addScoreInput').value = n; }
+
+function saveScore() {
+  if (!currentLookup) return;
+  const s = parseScore(document.getElementById('scoreEditInput').value);
+  if (!words[currentLookup]) words[currentLookup] = { score: null, mine: false };
+  words[currentLookup].score = s;
+  words[currentLookup].mine  = true;
+  saveLocal();
+  flash('lookupFlash', '✓ Score updated to ' + (s !== null ? s : '—'), 'good');
+  queueOp({ action: 'update_score', word: currentLookup, score: s });
+  doLookup();
+  updateBadge();
+}
+
+function addFromLookup() {
+  if (!currentLookup) return;
+  const s = parseScore(document.getElementById('addScoreInput').value);
+  words[currentLookup] = { score: s, mine: true };
+  saveLocal();
+  flash('lookupFlash', '✓ ' + currentLookup + ' added', 'good');
+  queueOp({ action: 'upsert', word: currentLookup, score: s });
+  doLookup();
+  renderAll();
+}
+
+// ── Browse ────────────────────────────────────────────────────
+function getFiltered(filter, search, sort) {
+  const q = (search||'').trim().toUpperCase();
+  let list = Object.entries(words).filter(([w, e]) => {
+    if (q && !w.includes(q)) return false;
+    if (filter==='mine') return e.mine;
+    if (filter==='s')    return w.length <= 6;
+    if (filter==='m')    return w.length >= 7  && w.length <= 10;
+    if (filter==='l')    return w.length >= 11 && w.length <= 14;
+    if (filter==='xl')   return w.length >= 15;
+    if (filter==='hi')   return (e.score??0) >= 70;
+    if (filter==='none') return e.score===null||e.score===undefined;
+    return true;
+  });
+  if (sort==='alpha')    list.sort((a,b)=>a[0].localeCompare(b[0]));
+  if (sort==='zalpha')   list.sort((a,b)=>b[0].localeCompare(a[0]));
+  if (sort==='score_hi') list.sort((a,b)=>(b[1].score??0)-(a[1].score??0));
+  if (sort==='score_lo') list.sort((a,b)=>(a[1].score??999)-(b[1].score??999));
+  if (sort==='len_hi')   list.sort((a,b)=>b[0].length-a[0].length);
+  if (sort==='len_lo')   list.sort((a,b)=>a[0].length-b[0].length);
+  return list;
+}
+
+function renderBrowse() { browsePage = 0; renderBrowsePage(); }
+
+function renderBrowsePage() {
+  const search = document.getElementById('browseSearch').value;
+  const sort   = document.getElementById('browseSort').value;
+  const list   = getFiltered(browseFilter, search, sort);
+  const total  = list.length;
+  const pages  = Math.max(1, Math.ceil(total/PAGE));
+  browsePage   = Math.min(browsePage, pages-1);
+  const slice  = list.slice(browsePage*PAGE, (browsePage+1)*PAGE);
+
+  document.getElementById('browseCount').innerHTML =
+    '<strong>' + total.toLocaleString() + '</strong> of ' + Object.keys(words).length.toLocaleString() + ' words';
+
+  document.getElementById('browseList').innerHTML = slice.length
+    ? slice.map(([w, e]) => {
+        const sv = e.score !== null && e.score !== undefined ? e.score : '';
+        return '<div class="word-row' + (e.mine?' is-mine':'') + '">' +
+          '<span class="wtext" onclick="jumpToLookup(\'' + w + '\')">' + w + '</span>' +
+          '<span class="wlen">' + w.length + '</span>' +
+          '<input type="text" class="inline-score" value="' + sv + '" onchange="inlineSave(\'' + w + '\',this.value)" onclick="this.select()" />' +
+          '<button class="inline-save" onclick="inlineSave(\'' + w + '\',this.previousElementSibling.value)">✓</button>' +
+          '</div>';
+      }).join('')
+    : '<div style="text-align:center;color:var(--gray-mid);padding:2rem;font-style:italic">No matches.</div>';
+
+  const pg = document.getElementById('browsePag');
+  if (pages <= 1) { pg.innerHTML=''; return; }
+  pg.innerHTML =
+    '<button class="pg-btn" onclick="goPage(0)" '+(browsePage===0?'disabled':'')+'>«</button>' +
+    '<button class="pg-btn" onclick="goPage('+(browsePage-1)+')" '+(browsePage===0?'disabled':'')+'>‹</button>' +
+    '<span class="pg-info">'+(browsePage+1)+' / '+pages+'</span>' +
+    '<button class="pg-btn" onclick="goPage('+(browsePage+1)+')" '+(browsePage===pages-1?'disabled':'')+'>›</button>' +
+    '<button class="pg-btn" onclick="goPage('+(pages-1)+')" '+(browsePage===pages-1?'disabled':'')+'>»</button>';
+}
+
+function goPage(n) { browsePage = n; renderBrowsePage(); }
+
+function setPill(f, el) {
+  browseFilter = f;
+  document.querySelectorAll('#browsePills .pill').forEach(p=>p.classList.remove('on'));
+  el.classList.add('on');
+  renderBrowse();
+}
+
+function jumpToLookup(w) {
+  document.getElementById('lookupInput').value = w;
+  currentLookup = w;
+  switchTab('lookup');
+  doLookup();
+}
+
+function inlineSave(w, val) {
+  const s = val.trim() === '' ? null : parseInt(val, 10);
+  if (isNaN(s) && val.trim() !== '') return;
+  if (!words[w]) words[w] = { score: null, mine: false };
+  words[w].score = s;
+  words[w].mine  = true;
+  saveLocal();
+  queueOp({ action: 'update_score', word: w, score: s });
+}
+
+// ── Export ────────────────────────────────────────────────────
+function getExportList() {
+  return Object.entries(words)
+    .filter(([w, e]) => {
+      if (exportMode==='mine' && !e.mine) return false;
+      if (exportMode==='hi'  && (e.score??0) < 70) return false;
+      if (exportFilter==='s')  return w.length <= 6;
+      if (exportFilter==='m')  return w.length >= 7  && w.length <= 10;
+      if (exportFilter==='l')  return w.length >= 11 && w.length <= 14;
+      if (exportFilter==='xl') return w.length >= 15;
+      return true;
+    })
+    .sort((a,b)=>a[0].localeCompare(b[0]));
+}
+
+function exportText() {
+  return getExportList().map(([w,e]) =>
+    e.score!==null&&e.score!==undefined ? w+';'+e.score : w
+  ).join('\n');
+}
+
+function renderExport() {
+  const list = getExportList();
+  document.getElementById('exportCount').innerHTML = '<strong>' + list.length.toLocaleString() + '</strong> words';
+  const preview = list.slice(0,120).map(([w,e])=>e.score!==null&&e.score!==undefined?w+';'+e.score:w).join('\n')
+    + (list.length>120?'\n… and '+(list.length-120)+' more':'');
+  document.getElementById('exportPreview').textContent = list.length ? preview : '(no words)';
+  document.getElementById('copyBtn').textContent = 'Copy ' + list.length.toLocaleString() + ' words';
+}
+
+function setExportMode(mode, el) {
+  exportMode = mode;
+  document.querySelectorAll('.etab').forEach(t=>t.classList.remove('on'));
+  el.classList.add('on');
+  renderExport();
+}
+
+function setExportPill(f, el) {
+  exportFilter = f;
+  document.querySelectorAll('#exportPills .pill').forEach(p=>p.classList.remove('on'));
+  el.classList.add('on');
+  renderExport();
+}
+
+async function doBulkAdd() {
+  const raw = document.getElementById('bulkWords').value;
+  const scoreVal = document.getElementById('bulkScore').value.trim();
+  const s = scoreVal === '' ? null : parseInt(scoreVal, 10);
+  const lines = raw.split('\n').map(l => norm(l)).filter(l => l.length > 0);
+
+  if (lines.length === 0) { flash('bulkFlash', 'No words to add', 'warn'); return; }
+
+  let added = 0, updated = 0;
+  lines.forEach(w => {
+    if (words[w]) { updated++; } else { added++; }
+    words[w] = { score: s, mine: true };
+  });
+
+  saveLocal();
+  renderAll();
+
+  document.getElementById('bulkSummary').style.display = 'block';
+  document.getElementById('bulkSummary').innerHTML =
+    '<strong>' + lines.length + ' words processed</strong><br>' +
+    added + ' new · ' + updated + ' updated · score: ' + (s !== null ? s : '—');
+
+  flash('bulkFlash', '✓ Syncing to Supabase…', 'good');
+
+  try {
+    const payload = lines.map(w => ({ word: w, score: s, length: w.length, mine: true }));
+    await sbPost('/rest/v1/words?on_conflict=word', payload);
+    flash('bulkFlash', '✓ ' + lines.length + ' words saved', 'good');
+    setStatus('ok', 'Synced · ' + Object.keys(words).length.toLocaleString() + ' words');
+  } catch(e) {
+    lines.forEach(w => queueOp({ action: 'upsert', word: w, score: s }));
+    flash('bulkFlash', '✓ Queued — will sync shortly', 'warn');
+  }
+
+  document.getElementById('bulkWords').value = '';
+  document.getElementById('bulkScore').value = '';
+}
+
+function doCopy() {
+  navigator.clipboard?.writeText(exportText());
+  flash('exportFlash', '✓ Copied ' + getExportList().length.toLocaleString() + ' words', 'good');
+}
+
+function doDownload() {
+  const blob = new Blob([exportText()], {type:'text/plain'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = exportMode==='mine' ? 'my-words.txt' : 'wordlist.txt';
+  a.click();
+  flash('exportFlash', '✓ Downloaded', 'good');
+}
+
+// ── Sync panel ────────────────────────────────────────────────
+function updateSyncPanel() {
+  const ls = getLastSync();
+  document.getElementById('lastSync').textContent = ls ? new Date(ls).toLocaleString() : '—';
+  document.getElementById('cachedCount').textContent = Object.keys(words).length.toLocaleString();
+  document.getElementById('pendingCount').textContent = pending.length;
+}
+
+// ── Misc ──────────────────────────────────────────────────────
+function flash(id, msg, type) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.className = 'flash flash-' + type;
+  setTimeout(()=>{ el.textContent=''; }, 3000);
+}
+
+function renderAll() {
+  updateBadge();
+  renderBrowsePage();
+  renderExport();
+  updateSyncPanel();
+}
+
+function switchTab(id) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelector('.tab[data-id="'+id+'"]').classList.add('active');
+  document.getElementById('panel-'+id).classList.add('active');
+  if (id==='browse') renderBrowse();
+  if (id==='export') renderExport();
+  if (id==='sync')   updateSyncPanel();
+}
+
+document.getElementById('lookupInput').addEventListener('keydown', e => { if(e.key==='Enter') doLookup(); });
+document.getElementById('scoreEditInput').addEventListener('keydown', e => { if(e.key==='Enter') saveScore(); });
+
+init();
+</script>
+</body>
+</html>
