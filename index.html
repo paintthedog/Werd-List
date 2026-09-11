@@ -737,10 +737,14 @@ async function doBulkAdd() {
 
   try {
     const payload = lines.map(w => ({ word: w, score: s, length: w.length, mine: true }));
-    const res = await fetch(SB_URL + '/rest/v1/words?on_conflict=word', {
+    const res = await fetch(SB_URL + '/rest/v1/rpc/upsert_words', {
       method: 'POST',
-      headers: { ...HEADERS, 'Prefer': 'resolution=merge-duplicates' },
-      body: JSON.stringify(payload)
+      headers: {
+        'apikey': SB_KEY,
+        'Authorization': 'Bearer ' + SB_KEY,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ payload: payload })
     });
     if (!res.ok) throw new Error(await res.text());
     flash('bulkFlash', '✓ ' + lines.length + ' words saved', 'good');
