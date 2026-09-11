@@ -737,7 +737,12 @@ async function doBulkAdd() {
 
   try {
     const payload = lines.map(w => ({ word: w, score: s, length: w.length, mine: true }));
-    await sbPost('/rest/v1/words?on_conflict=word', payload);
+    const res = await fetch(SB_URL + '/rest/v1/words?on_conflict=word', {
+      method: 'POST',
+      headers: { ...HEADERS, 'Prefer': 'resolution=merge-duplicates' },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) throw new Error(await res.text());
     flash('bulkFlash', '✓ ' + lines.length + ' words saved', 'good');
     setStatus('ok', 'Synced · ' + Object.keys(words).length.toLocaleString() + ' words');
   } catch(e) {
